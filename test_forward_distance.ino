@@ -44,10 +44,11 @@ void resetEncoderAndTimer() {
   timeOld = millis();
 }
 
-void moveForward(unsigned int velocity) {  
-  resetEncoderAndTimer();
-  analogWrite(LeftMotorVelocity, velocity);
+void moveForward(unsigned int velocity) { 
+  Serial.println(velocity); 
+  resetEncoderAndTimer();  
   analogWrite(RightMotorVelocity, velocity);
+  analogWrite(LeftMotorVelocity, velocity);
 }
 
 void moveRight(unsigned int velocity) {
@@ -72,8 +73,6 @@ void moveStop() {
   res += " Time = ";
   res += (millis() - timeOld);
   res += " millis";  
-  res += " Action = ";
-  res += inputString;
   detachInterrupt(digitalPinToInterrupt(LeftMotorEncoder));
   detachInterrupt(digitalPinToInterrupt(RightMotorEncoder));
   Serial.println(res);
@@ -82,14 +81,15 @@ void moveStop() {
 void loop() {
   if (stringComplete) {
     if(inputString[0] == 'F') {
-      moveForward((inputString.substring(1)).toInt());
+      moveForward((inputString.substring(1)).toInt());      
     } else if(inputString[0] == 'R') {
       moveRight((inputString.substring(1)).toInt());
     } else if(inputString[0] == 'L') {
       moveLeft((inputString.substring(1)).toInt());
     } else if (inputString[0] == 'S') {
       moveStop();      
-    }
+    }    
+    Serial.println(inputString);
     inputString = "";
     stringComplete = false;
   }  
