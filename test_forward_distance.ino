@@ -14,53 +14,44 @@ const unsigned char RightMotorEncoder = 3;
 volatile unsigned int pulsesL;
 volatile unsigned int pulsesR;
 
+
 String inputString = "";        
 bool stringComplete = false; 
 
 unsigned long timeOld;
 
 void setup() {
+  // initialize serial:
   Serial.begin(9600);
+  // reserve 200 bytes for the inputString:
   inputString.reserve(200);
-    
+
+  // put your setup code here, to run once:  
   pinMode(RightMotorBackward, OUTPUT);
   pinMode(RightMotorVelocity, OUTPUT);
   pinMode(RightMotorForward, OUTPUT);  
   pinMode(LeftMotorBackward, OUTPUT);
   pinMode(LeftMotorVelocity, OUTPUT);
-  pinMode(LeftMotorForward, OUTPUT);  
+  pinMode(LeftMotorForward, OUTPUT);
+
+
+  
   
   digitalWrite(RightMotorForward, 1);
-  digitalWrite(RightMotorBackward, 0);  
+  digitalWrite(RightMotorBackward, 0);
+  
   digitalWrite(LeftMotorForward, 1);
   digitalWrite(LeftMotorBackward, 0);
 }
 
-void resetEncoderAndTimer() {
+void moveForward() {  
   pulsesL=0;
   pulsesR=0;
   attachInterrupt(digitalPinToInterrupt(LeftMotorEncoder), counterL, FALLING);
-  attachInterrupt(digitalPinToInterrupt(RightMotorEncoder), counterR, FALLING);  
+  attachInterrupt(digitalPinToInterrupt(RightMotorEncoder), counterR, FALLING);
+  analogWrite(LeftMotorVelocity, 255);
+  analogWrite(RightMotorVelocity, 255);
   timeOld = millis();
-}
-
-void moveForward(unsigned int velocity) { 
-  Serial.println(velocity); 
-  resetEncoderAndTimer();  
-  analogWrite(RightMotorVelocity, velocity);
-  analogWrite(LeftMotorVelocity, velocity);
-}
-
-void moveRight(unsigned int velocity) {
-  resetEncoderAndTimer();
-  analogWrite(LeftMotorVelocity, velocity);
-  analogWrite(RightMotorVelocity, 0);
-}
-
-void moveLeft(unsigned int velocity) {  
-  resetEncoderAndTimer();
-  analogWrite(LeftMotorVelocity, 0);
-  analogWrite(RightMotorVelocity, velocity);
 }
 
 void moveStop() {
@@ -79,17 +70,15 @@ void moveStop() {
 }
 
 void loop() {
+  // print the string when a newline arrives:
   if (stringComplete) {
-    if(inputString[0] == 'F') {
-      moveForward((inputString.substring(1)).toInt());      
-    } else if(inputString[0] == 'R') {
-      moveRight((inputString.substring(1)).toInt());
-    } else if(inputString[0] == 'L') {
-      moveLeft((inputString.substring(1)).toInt());
-    } else if (inputString[0] == 'S') {
-      moveStop();      
-    }    
     Serial.println(inputString);
+    if(inputString == "255\n"){
+      moveForward();
+    } else if (inputString == "0\n") {
+      moveStop();      
+    }
+    // clear the string:
     inputString = "";
     stringComplete = false;
   }  
@@ -110,11 +99,11 @@ void counterR()
 
 void serialEvent() {
   while (Serial.available()) {
-    char inChar = (char)Serial.read();    
+    // get the new byte:
+    char inChar = (char)Serial.read();
+    inputString += inChar;
     if (inChar == '\n') {
       stringComplete = true;
-    } else {
-      inputString += inChar;
     }
   }
 }
