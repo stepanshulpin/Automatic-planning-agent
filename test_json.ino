@@ -50,7 +50,6 @@ void resetEncoderAndTimer() {
 }
 
 void moveForward(unsigned int velocity) { 
-  Serial.println(velocity); 
   resetEncoderAndTimer();  
   analogWrite(RightMotorVelocity, velocity);
   analogWrite(LeftMotorVelocity, velocity);
@@ -81,8 +80,10 @@ String createJson(String pulsesL, String pulsesR, String timeInterval) {
 
 void moveStop() {
   analogWrite(LeftMotorVelocity, 0);
-  analogWrite(RightMotorVelocity, 0);  
-  Serial.println(createJson(String(pulsesL), String(pulsesR), String(millis() - timeOld))); 
+  analogWrite(RightMotorVelocity, 0);
+  unsigned long timeInterval = millis() - timeOld;
+  delay(500);  
+  Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval)));  
   detachInterrupt(digitalPinToInterrupt(LeftMotorEncoder));
   detachInterrupt(digitalPinToInterrupt(RightMotorEncoder));
 }
