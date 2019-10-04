@@ -20,7 +20,7 @@ String inputString = "";
 bool stringComplete = false;
 
 unsigned long timeOld;
-unsigned long timeStratInterval;
+unsigned long timeStartInterval;
 unsigned int reportInterval = 100;
 
 unsigned int pulsesCountForDistance = 0;
@@ -87,67 +87,72 @@ void moveStop() {
   analogWrite(LeftMotorVelocity, 0);
   analogWrite(RightMotorVelocity, 0);
   unsigned long timeInterval = millis() - timeOld;
-  delay(500);
   Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval)));
   detachInterrupt(digitalPinToInterrupt(LeftMotorEncoder));
   detachInterrupt(digitalPinToInterrupt(RightMotorEncoder));
 }
 
 void moveForwardWithDistance(unsigned int dist) {
-  pulsesCountForDistance = dist / 20.7 * 20;
+  pulsesCountForDistance = dist * 20 / 20.7;
   Serial.print("pulsesCountForDistance= ");
   Serial.println(pulsesCountForDistance);
   isMoving = true;
   timeStartInterval = millis();
-  moveForward(255);
+  moveForward(200);
 }
 
 void processInputString() {
   if (inputString[0] == 'F') {
-      moveForward((inputString.substring(1)).toInt());
-    } else if (inputString[0] == 'R') {
-      moveRight((inputString.substring(1)).toInt());
-    } else if (inputString[0] == 'L') {
-      moveLeft((inputString.substring(1)).toInt());
-    } else if (inputString[0] == 'D') {
-      if(inputString[1] == 'F') {
-        moveForwardWithDistance((inputString.substring(2)).toInt())
-      }
-    } else if (inputString[0] == 'S') {
-      moveStop();
+    moveForward((inputString.substring(1)).toInt());
+  } else if (inputString[0] == 'R') {
+    moveRight((inputString.substring(1)).toInt());
+  } else if (inputString[0] == 'L') {
+    moveLeft((inputString.substring(1)).toInt());
+  } else if (inputString[0] == 'D') {
+    if (inputString[1] == 'F') {
+      moveForwardWithDistance((inputString.substring(2)).toInt());
     }
-    Serial.println(inputString);
-    inputString = "";
-    stringComplete = false;
+  } else if (inputString[0] == 'S') {
+    moveStop();
+  }
+  Serial.println(inputString);
+  inputString = "";
+  stringComplete = false;
 }
 
-void sendReport() {  
-  unsigned long timeInterval = millis() - timeOld;  
+void sendReport() {
+  unsigned long timeInterval = millis() - timeOld;
   Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval)));
 }
 
-void isCompleteMove() {
-  return (pulsesR >= pulsesCountForDistance || pulsesL >= pulsesCountForDistance);
+bool isCompleteMove() {
+  bool res = false;
+  if (isMoving) {
+    res = (pulsesR >= pulsesCountForDistance || pulsesL >= pulsesCountForDistance);
+  }
+  return res;
 }
 
-void isCompleteTime() {
+bool isCompleteTime() {
   bool res = false;
-  if(isMoving) {
+  if (isMoving) {
     res = (millis() - timeStartInterval) >= reportInterval;
-    timeStartInterval = millis();
+    if (res) {
+      timeStartInterval = millis();
+    }
   }
   return res;
 }
 
 void loop() {
 
-  if(isCompleteMove()) {
-    isMoving = false;
-    moveStop();  
-  }
-
   if (isCompleteTime()) {
     sendReport();
+  }
+
+  if (isCompleteMove()) {
+    isMoving = false;
+    moveStop();
   }
 
   if (stringComplete) {
