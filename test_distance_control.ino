@@ -21,13 +21,13 @@ bool stringComplete = false;
 
 unsigned long timeOld;
 unsigned long timeStartInterval;
-unsigned int reportInterval = 100;
+unsigned int reportInterval = 200;
 
 unsigned int pulsesCountForDistance = 0;
 bool isMoving = false;
 
 
-const int capacity = JSON_OBJECT_SIZE(6);
+const int capacity = JSON_OBJECT_SIZE(8);
 
 void setup() {
   Serial.begin(9600);
@@ -55,7 +55,12 @@ void resetEncoderAndTimer() {
 }
 
 void moveForward(unsigned int velocity) {
-  resetEncoderAndTimer();
+  resetEncoderAndTimer();    
+  if(velocity < 120) {
+    analogWrite(RightMotorVelocity, 175);
+    analogWrite(LeftMotorVelocity, 175);
+    delay(50);
+  }
   analogWrite(RightMotorVelocity, velocity);
   analogWrite(LeftMotorVelocity, velocity);
 }
@@ -79,6 +84,7 @@ String createJson(String pulsesL, String pulsesR, String timeInterval) {
   doc["pulsesL"] = pulsesL;
   doc["pulsesR"] = pulsesR;
   doc["timeInterval"] = timeInterval;
+  doc["isMoving"] = isMoving;
   serializeJson(doc, res);
   return res;
 }
@@ -92,13 +98,15 @@ void moveStop() {
   detachInterrupt(digitalPinToInterrupt(RightMotorEncoder));
 }
 
-void moveForwardWithDistance(unsigned int dist) {
+void moveForwardWithDistance(unsigned int dist, unsigned int velocity) {
+  Serial.println(dist);
+  Serial.println(velocity);
   pulsesCountForDistance = dist * 20 / 20.7;
   Serial.print("pulsesCountForDistance= ");
   Serial.println(pulsesCountForDistance);
   isMoving = true;
   timeStartInterval = millis();
-  moveForward(200);
+  moveForward(velocity);
 }
 
 void processInputString() {
@@ -110,7 +118,8 @@ void processInputString() {
     moveLeft((inputString.substring(1)).toInt());
   } else if (inputString[0] == 'D') {
     if (inputString[1] == 'F') {
-      moveForwardWithDistance((inputString.substring(2)).toInt());
+      int sep = inputString.indexOf(';');      
+      moveForwardWithDistance((inputString.substring(2, sep)).toInt(), (inputString.substring(sep + 1)).toInt());
     }
   } else if (inputString[0] == 'S') {
     moveStop();
