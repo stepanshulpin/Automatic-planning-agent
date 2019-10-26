@@ -1,4 +1,19 @@
 #include <ArduinoJson.h>
+#include <PinChangeInterrupt.h>
+
+#include "SonarController.h"
+
+//Пины сонаров
+const unsigned char TRIG_PIN_R_TOP = 11;
+const unsigned char ECHO_PIN_R_TOP = A2;
+const unsigned char TRIG_PIN_L_TOP = 10;
+const unsigned char ECHO_PIN_L_TOP = A1;
+const unsigned char TRIG_PIN_C_BOTTOM = 12;
+const unsigned char ECHO_PIN_C_BOTTOM = A0;
+const unsigned char TRIG_PIN_L_BOTTOM = 13;
+const unsigned char ECHO_PIN_L_BOTTOM = A3;
+const unsigned char TRIG_PIN_R_BOTTOM = A5;
+const unsigned char ECHO_PIN_R_BOTTOM = A4;
 
 //Controller L298N pins
 const unsigned char RightMotorForward = 8;
@@ -23,7 +38,11 @@ unsigned long timeOld;
 unsigned long timeStartInterval;
 unsigned int reportInterval = 200;
 
+bool isMoving = false;
+
 const int capacity = JSON_OBJECT_SIZE(8);
+
+SonarController sonarController(TRIG_PIN_L_TOP, ECHO_PIN_L_TOP, TRIG_PIN_R_TOP, ECHO_PIN_R_TOP, TRIG_PIN_C_BOTTOM, ECHO_PIN_C_BOTTOM, TRIG_PIN_L_BOTTOM, ECHO_PIN_L_BOTTOM, TRIG_PIN_R_BOTTOM, ECHO_PIN_R_BOTTOM);
 
 void setup() {
   Serial.begin(9600);
@@ -36,6 +55,9 @@ void setup() {
   pinMode(LeftMotorVelocity, OUTPUT);
   pinMode(LeftMotorForward, OUTPUT);
 
+  sonarController.init();
+  sonarController.start();
+
   digitalWrite(RightMotorForward, 1);
   digitalWrite(RightMotorBackward, 0);
   digitalWrite(LeftMotorForward, 1);
@@ -45,15 +67,16 @@ void setup() {
 void resetEncoderAndTimer() {
   pulsesL = 0;
   pulsesR = 0;
+  isMoving = true;
   attachInterrupt(digitalPinToInterrupt(LeftMotorEncoder), counterL, FALLING);
   attachInterrupt(digitalPinToInterrupt(RightMotorEncoder), counterR, FALLING);
   timeOld = millis();
-  timeStartInterval = millis()
+  timeStartInterval = millis();
 }
 
 void moveForward(unsigned int velocity) {
-  resetEncoderAndTimer();    
-  if(velocity < 120) {
+  resetEncoderAndTimer();
+  if (velocity < 120) {
     analogWrite(RightMotorVelocity, 175);
     analogWrite(LeftMotorVelocity, 175);
     delay(50);
@@ -74,22 +97,11 @@ void moveLeft(unsigned int velocity) {
   analogWrite(RightMotorVelocity, velocity);
 }
 
-String createJson(String pulsesL, String pulsesR, String timeInterval) {
-  String res = "";
-  res.reserve(200);
-  StaticJsonDocument<capacity> doc;
-  doc["pulsesL"] = pulsesL;
-  doc["pulsesR"] = pulsesR;
-  doc["timeInterval"] = timeInterval;
-  serializeJson(doc, res);
-  return res;
-}
-
 void moveStop() {
+  isMoving = false;
   analogWrite(LeftMotorVelocity, 0);
   analogWrite(RightMotorVelocity, 0);
-  unsigned long timeInterval = millis() - timeOld;
-  Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval)));
+  sendReport();
   detachInterrupt(digitalPinToInterrupt(LeftMotorEncoder));
   detachInterrupt(digitalPinToInterrupt(RightMotorEncoder));
 }
@@ -109,9 +121,27 @@ void processInputString() {
   stringComplete = false;
 }
 
+String createJson(String pulsesL, String pulsesR, String timeInterval, String rrs, String rs, String fs, String ls, String lls) {
+  String res = "";
+  res.reserve(200);
+  StaticJsonDocument<capacity> doc;
+  doc["pulsesL"] = pulsesL;
+  doc["pulsesR"] = pulsesR;
+  doc["timeInterval"] = timeInterval;
+  doc["rrs"] = rrs;
+  doc["rs"] = rs;
+  doc["fs"] = fs;
+  doc["ls"] = ls;
+  doc["lls"] = lls;
+  serializeJson(doc, res);
+  return res;
+}
+
 void sendReport() {
   unsigned long timeInterval = millis() - timeOld;
-  Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval)));
+  float r[SONARS_N];
+  sonarController.getRanges(r);
+  Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval), String(r[0]), String(r[1]), String(r[2]), String(r[3]), String(r[4])));
 }
 
 bool isCompleteTime() {
@@ -127,6 +157,10 @@ bool isCompleteTime() {
 
 void loop() {
 
+  if (sonarController.isReady()) {
+    sonarController.start();
+  }
+
   if (isCompleteTime()) {
     sendReport();
   }
@@ -134,10 +168,8 @@ void loop() {
   if (stringComplete) {
     processInputString();
   }
-  
+
 }
-
-
 
 void counterL()
 {
@@ -149,6 +181,17 @@ void counterR()
   pulsesR++;
 }
 
+void _echo_isr() {
+  switch (digitalRead(sonarController.getCurrent()->_echo)) {
+    case HIGH:
+      sonarController.getCurrent()->_start = micros();
+      break;
+    case LOW:
+      sonarController.getCurrent()->stop();
+      sonarController.next();
+      break;
+  }
+}
 
 void serialEvent() {
   while (Serial.available()) {
