@@ -40,7 +40,7 @@ unsigned int reportInterval = 200;
 
 bool isMoving = false;
 
-const int capacity = JSON_OBJECT_SIZE(8);
+const int capacity = JSON_OBJECT_SIZE(16);
 
 SonarController sonarController(TRIG_PIN_L_TOP, ECHO_PIN_L_TOP, TRIG_PIN_R_TOP, ECHO_PIN_R_TOP, TRIG_PIN_C_BOTTOM, ECHO_PIN_C_BOTTOM, TRIG_PIN_L_BOTTOM, ECHO_PIN_L_BOTTOM, TRIG_PIN_R_BOTTOM, ECHO_PIN_R_BOTTOM);
 
@@ -184,7 +184,7 @@ void counterR()
 void _echo_isr() {
   switch (digitalRead(sonarController.getCurrent()->_echo)) {
     case HIGH:
-      sonarController.getCurrent()->_start = micros();
+      sonarController.getCurrent()->_start = micros(); 
       break;
     case LOW:
       sonarController.getCurrent()->stop();
