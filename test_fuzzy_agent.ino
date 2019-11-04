@@ -36,7 +36,7 @@ bool stringComplete = false;
 
 unsigned long timeOld;
 unsigned long timeStartInterval;
-unsigned int reportInterval = 200;
+unsigned int reportInterval = 50;
 
 bool isMoving = false;
 
@@ -67,54 +67,60 @@ void setup() {
 void resetEncoderAndTimer() {
   pulsesL = 0;
   pulsesR = 0;
-  isMoving = true;
   attachInterrupt(digitalPinToInterrupt(LeftMotorEncoder), counterL, FALLING);
   attachInterrupt(digitalPinToInterrupt(RightMotorEncoder), counterR, FALLING);
   timeOld = millis();
   timeStartInterval = millis();
 }
 
-void moveForward(unsigned int velocity) {
-  resetEncoderAndTimer();
-  if (velocity < 120) {
+void moveRL(unsigned int rVelocity, unsigned int lVelocity) {
+  resetEncoderAndTimer();  
+  isMoving = true;
+  if (rVelocity < 120 || lVelocity < 120) {
+    analogWrite(RightMotorVelocity, 120);
+    analogWrite(LeftMotorVelocity, 120);
+    delay(40);
+  }
+  analogWrite(RightMotorVelocity, rVelocity);
+  analogWrite(LeftMotorVelocity, lVelocity);
+}
+
+void moveBackRL(unsigned int rVelocity, unsigned int lVelocity) {
+  resetEncoderAndTimer();  
+  digitalWrite(RightMotorForward, 0);
+  digitalWrite(RightMotorBackward, 1);
+  digitalWrite(LeftMotorForward, 0);
+  digitalWrite(LeftMotorBackward, 1);
+  if (rVelocity < 120 || lVelocity < 120) {
     analogWrite(RightMotorVelocity, 175);
     analogWrite(LeftMotorVelocity, 175);
     delay(50);
   }
-  analogWrite(RightMotorVelocity, velocity);
-  analogWrite(LeftMotorVelocity, velocity);
-}
-
-void moveRight(unsigned int velocity) {
-  resetEncoderAndTimer();
-  analogWrite(LeftMotorVelocity, velocity);
-  analogWrite(RightMotorVelocity, 0);
-}
-
-void moveLeft(unsigned int velocity) {
-  resetEncoderAndTimer();
-  analogWrite(LeftMotorVelocity, 0);
-  analogWrite(RightMotorVelocity, velocity);
+  analogWrite(RightMotorVelocity, rVelocity);
+  analogWrite(LeftMotorVelocity, lVelocity);
 }
 
 void moveStop() {
   isMoving = false;
   analogWrite(LeftMotorVelocity, 0);
   analogWrite(RightMotorVelocity, 0);
-  sendReport();
   detachInterrupt(digitalPinToInterrupt(LeftMotorEncoder));
   detachInterrupt(digitalPinToInterrupt(RightMotorEncoder));
+  digitalWrite(RightMotorForward, 1);
+  digitalWrite(RightMotorBackward, 0);
+  digitalWrite(LeftMotorForward, 1);
+  digitalWrite(LeftMotorBackward, 0);
 }
 
 void processInputString() {
-  if (inputString[0] == 'F') {
-    moveForward((inputString.substring(1)).toInt());
-  } else if (inputString[0] == 'R') {
-    moveRight((inputString.substring(1)).toInt());
-  } else if (inputString[0] == 'L') {
-    moveLeft((inputString.substring(1)).toInt());
-  } else if (inputString[0] == 'S') {
+  if (inputString[0] == 'S') {
     moveStop();
+  } else if (inputString[0] == 'M'){
+    int sep = inputString.indexOf(';');
+    moveRL((inputString.substring(1, sep)).toInt(), (inputString.substring(sep + 1)).toInt());
+  } else if (inputString[0] == 'B'){
+    int sep = inputString.indexOf(';');
+    moveBackRL((inputString.substring(1, sep)).toInt(), (inputString.substring(sep + 1)).toInt());
   }
   Serial.println(inputString);
   inputString = "";
