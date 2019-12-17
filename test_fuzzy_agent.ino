@@ -38,7 +38,7 @@ unsigned long timeOld;
 unsigned long timeStartInterval;
 unsigned int reportInterval = 50;
 
-bool isMoving = false;
+bool isSend = true;
 
 const int capacity = JSON_OBJECT_SIZE(16);
 
@@ -74,12 +74,12 @@ void resetEncoderAndTimer() {
 }
 
 void moveRL(unsigned int rVelocity, unsigned int lVelocity) {
-  resetEncoderAndTimer();  
-  isMoving = true;
+  timeStartInterval = millis();  
+  isSend = false;
   if (rVelocity < 120 || lVelocity < 120) {
     analogWrite(RightMotorVelocity, 120);
     analogWrite(LeftMotorVelocity, 120);
-    delay(40);
+    delay(30);
   }
   analogWrite(RightMotorVelocity, rVelocity);
   analogWrite(LeftMotorVelocity, lVelocity);
@@ -101,7 +101,7 @@ void moveBackRL(unsigned int rVelocity, unsigned int lVelocity) {
 }
 
 void moveStop() {
-  isMoving = false;
+  isSend = true;
   analogWrite(LeftMotorVelocity, 0);
   analogWrite(RightMotorVelocity, 0);
   detachInterrupt(digitalPinToInterrupt(LeftMotorEncoder));
@@ -129,7 +129,7 @@ void processInputString() {
 
 String createJson(String pulsesL, String pulsesR, String timeInterval, String rrs, String rs, String fs, String ls, String lls) {
   String res = "";
-  res.reserve(200);
+  res.reserve(250);
   StaticJsonDocument<capacity> doc;
   doc["pulsesL"] = pulsesL;
   doc["pulsesR"] = pulsesR;
@@ -152,11 +152,8 @@ void sendReport() {
 
 bool isCompleteTime() {
   bool res = false;
-  if (isMoving) {
+  if (!isSend) {
     res = (millis() - timeStartInterval) >= reportInterval;
-    if (res) {
-      timeStartInterval = millis();
-    }
   }
   return res;
 }
