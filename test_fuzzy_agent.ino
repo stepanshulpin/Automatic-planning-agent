@@ -36,7 +36,7 @@ bool stringComplete = false;
 
 unsigned long timeOld;
 unsigned long timeStartInterval;
-unsigned int reportInterval = 50;
+unsigned int reportInterval = 0;
 
 bool isSend = true;
 
@@ -45,8 +45,8 @@ const int capacity = JSON_OBJECT_SIZE(16);
 SonarController sonarController(TRIG_PIN_L_TOP, ECHO_PIN_L_TOP, TRIG_PIN_R_TOP, ECHO_PIN_R_TOP, TRIG_PIN_C_BOTTOM, ECHO_PIN_C_BOTTOM, TRIG_PIN_L_BOTTOM, ECHO_PIN_L_BOTTOM, TRIG_PIN_R_BOTTOM, ECHO_PIN_R_BOTTOM);
 
 void setup() {
-  Serial.begin(9600);
-  inputString.reserve(200);
+  Serial.begin(115200);
+  inputString.reserve(20);
 
   pinMode(RightMotorBackward, OUTPUT);
   pinMode(RightMotorVelocity, OUTPUT);
@@ -74,19 +74,32 @@ void resetEncoderAndTimer() {
 }
 
 void moveRL(unsigned int rVelocity, unsigned int lVelocity) {
-  timeStartInterval = millis();  
   isSend = false;
-  if (rVelocity < 120 || lVelocity < 120) {
-    analogWrite(RightMotorVelocity, 120);
-    analogWrite(LeftMotorVelocity, 120);
-    delay(30);
+  timeStartInterval = millis();
+  analogWrite(RightMotorVelocity, 0);
+  analogWrite(LeftMotorVelocity, 0);
+  if (rVelocity < 120 && lVelocity < 120) {
+    analogWrite(RightMotorVelocity, 0);
+    analogWrite(LeftMotorVelocity, 0);
+  } else {
+    if (rVelocity < 120 && lVelocity >= 120) {
+      analogWrite(RightMotorVelocity, 0);
+      analogWrite(LeftMotorVelocity, lVelocity);
+    } else {
+      if (rVelocity >= 120 && lVelocity < 120) {
+        analogWrite(RightMotorVelocity, rVelocity);
+        analogWrite(LeftMotorVelocity, 0);
+      } else {
+        analogWrite(RightMotorVelocity, rVelocity);
+        analogWrite(LeftMotorVelocity, lVelocity);
+      }
+    }
   }
-  analogWrite(RightMotorVelocity, rVelocity);
-  analogWrite(LeftMotorVelocity, lVelocity);
+  sendReport();
 }
 
 void moveBackRL(unsigned int rVelocity, unsigned int lVelocity) {
-  resetEncoderAndTimer();  
+  resetEncoderAndTimer();
   digitalWrite(RightMotorForward, 0);
   digitalWrite(RightMotorBackward, 1);
   digitalWrite(LeftMotorForward, 0);
@@ -115,25 +128,23 @@ void moveStop() {
 void processInputString() {
   if (inputString[0] == 'S') {
     moveStop();
-  } else if (inputString[0] == 'M'){
+  } else if (inputString[0] == 'M') {
     int sep = inputString.indexOf(';');
     moveRL((inputString.substring(1, sep)).toInt(), (inputString.substring(sep + 1)).toInt());
-  } else if (inputString[0] == 'B'){
+  } else if (inputString[0] == 'B') {
     int sep = inputString.indexOf(';');
     moveBackRL((inputString.substring(1, sep)).toInt(), (inputString.substring(sep + 1)).toInt());
   }
-  Serial.println(inputString);
   inputString = "";
   stringComplete = false;
 }
 
-String createJson(String pulsesL, String pulsesR, String timeInterval, String rrs, String rs, String fs, String ls, String lls) {
+String createJson(String rrs, String rs, String fs, String ls, String lls) {
   String res = "";
-  res.reserve(250);
+  res.reserve(100);
+  long times = millis();
   StaticJsonDocument<capacity> doc;
-  doc["pulsesL"] = pulsesL;
-  doc["pulsesR"] = pulsesR;
-  doc["timeInterval"] = timeInterval;
+  doc["timeInterval"] = String(times);
   doc["rrs"] = rrs;
   doc["rs"] = rs;
   doc["fs"] = fs;
@@ -144,10 +155,10 @@ String createJson(String pulsesL, String pulsesR, String timeInterval, String rr
 }
 
 void sendReport() {
-  unsigned long timeInterval = millis() - timeOld;
   float r[SONARS_N];
   sonarController.getRanges(r);
-  Serial.println(createJson(String(pulsesL), String(pulsesR), String(timeInterval), String(r[0]), String(r[1]), String(r[2]), String(r[3]), String(r[4])));
+  Serial.println(createJson(String(r[0]), String(r[1]), String(r[2]), String(r[3]), String(r[4])));
+  //moveStop();
 }
 
 bool isCompleteTime() {
@@ -164,9 +175,9 @@ void loop() {
     sonarController.start();
   }
 
-  if (isCompleteTime()) {
+  /*if (isCompleteTime()) {
     sendReport();
-  }
+  }*/
 
   if (stringComplete) {
     processInputString();
@@ -187,7 +198,7 @@ void counterR()
 void _echo_isr() {
   switch (digitalRead(sonarController.getCurrent()->_echo)) {
     case HIGH:
-      sonarController.getCurrent()->_start = micros(); 
+      sonarController.getCurrent()->_start = micros();
       break;
     case LOW:
       sonarController.getCurrent()->stop();

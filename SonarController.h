@@ -73,7 +73,7 @@ class SonarController {
     }
 
     bool isReady() {
-      return !isStart && (millis() - timeOldSonars >= 50);
+      return !isStart && (millis() - timeOldSonars >= 30);
     }
 
     void start() {
